@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}Register — Cloud File Share{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card glass-panel animate-fade-in">
+        <div class="auth-header">
+            <div class="auth-icon-wrap">
+                <i data-lucide="user-plus" class="auth-icon"></i>
+            </div>
+            <h1 class="auth-title">Create Account</h1>
+            <p class="auth-subtitle">Get 100 MB free cloud storage tier instantly</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('register') }}" class="auth-form" id="registerForm">
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <div class="input-with-icon">
+                    <i data-lucide="user" class="input-icon"></i>
+                    <input type="text" id="username" name="username" class="form-control" 
+                           placeholder="Choose a username" value="{{ username|default('') }}" required minlength="3">
+                </div>
+                <small class="form-hint">At least 3 characters, alphanumeric or underscores</small>
+            </div>
+
+            <div class="form-group">
+                <label for="email" class="form-label">Email Address</label>
+                <div class="input-with-icon">
+                    <i data-lucide="mail" class="input-icon"></i>
+                    <input type="email" id="email" name="email" class="form-control" 
+                           placeholder="user@example.com" value="{{ email|default('') }}" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <div class="input-with-icon">
+                    <i data-lucide="lock" class="input-icon"></i>
+                    <input type="password" id="password" name="password" class="form-control" 
+                           placeholder="At least 6 characters" required minlength="6">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password" class="form-label">Confirm Password</label>
+                <div class="input-with-icon">
+                    <i data-lucide="shield-check" class="input-icon"></i>
+                    <input type="password" id="confirm_password" name="confirm_password" class="form-control" 
+                           placeholder="Repeat your password" required minlength="6">
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="registerSubmitBtn">
+                <i data-lucide="check"></i>
+                <span>Complete Registration</span>
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Already have an account? <a href="{{ url_for('login') }}" class="auth-link">Sign In</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

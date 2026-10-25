@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if status == 'active' %}
+        {{ link.original_filename }} — Shared File
+    {% else %}
+        {{ error_title|default('Shared File Error') }} — Cloud File Share
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="shared-view-wrapper">
+    {% if status == 'active' %}
+        <div class="shared-card glass-panel animate-fade-in">
+            <!-- Header -->
+            <div class="shared-card-header">
+                <div class="file-type-icon-lg cat-{{ link.category }}">
+                    {% if link.category == 'image' %}
+                        <i data-lucide="image"></i>
+                    {% elif link.category == 'document' %}
+                        <i data-lucide="file-text"></i>
+                    {% elif link.category == 'video' %}
+                        <i data-lucide="video"></i>
+                    {% elif link.category == 'audio' %}
+                        <i data-lucide="music"></i>
+                    {% elif link.category == 'code' %}
+                        <i data-lucide="code"></i>
+                    {% elif link.category == 'archive' %}
+                        <i data-lucide="archive"></i>
+                    {% else %}
+                        <i data-lucide="file"></i>
+                    {% endif %}
+                </div>
+                <div class="shared-title-wrap">
+                    <span class="shared-sub-badge">Secure Cloud Shared File</span>
+                    <h1 class="shared-filename">{{ link.original_filename }}</h1>
+                    <p class="shared-owner-text">Shared by <strong>{{ link.owner_username }}</strong></p>
+                </div>
+            </div>
+
+            <!-- Metadata Details -->
+            <div class="shared-meta-grid">
+                <div class="meta-item">
+                    <span class="meta-label">File Size</span>
+                    <span class="meta-val font-mono">{{ link.file_size|format_bytes }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Category</span>
+                    <span class="meta-val"><span class="badge-category cat-{{ link.category }}">{{ link.category|capitalize }}</span></span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Permission</span>
+                    <span class="meta-val">
+                        <span class="badge-perm {{ 'perm-download' if link.permission == 'download' else 'perm-view' }}">
+                            <i data-lucide="{{ 'download-cloud' if link.permission == 'download' else 'eye' }}"></i>
+                            {{ 'Download & View' if link.permission == 'download' else 'View Only' }}
+                        </span>
+                    </span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Expires</span>
+                    <span class="meta-val">
+                        {% if link.expires_at %}
+                            {{ link.expires_at|format_datetime }}
+                        {% else %}
+                            <span class="text-muted">Never (Persistent)</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Permission Notice Banner -->
+            {% if link.permission == 'view' %}
+                <div class="alert-view-only">
+                    <i data-lucide="shield-alert"></i>
+                    <span><strong>View-Only Permission:</strong> The owner shared this file for online viewing only. Downloading is disabled.</span>
+                </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="shared-actions">
+                {% if link.permission == 'download' %}
+                    <a href="{{ download_url }}" class="btn btn-primary btn-lg" id="downloadSharedBtn">
+                        <i data-lucide="download"></i>
+                        <span>Download File ({{ link.file_size|format_bytes }})</span>
+                    </a>
+                {% endif %}
+                <button type="button" class="btn btn-outline-secondary btn-lg" id="togglePreviewBtn" onclick="toggleSharedPreview()">
+                    <i data-lucide="eye"></i>
+                    <span id="previewBtnText">Preview File</span>
+                </button>
+            </div>
+
+            <!-- Inline Preview Container -->
+            <div class="shared-preview-box" id="sharedPreviewBox" style="display: none;">
+                <div class="shared-preview-header">
+                    <span class="font-bold">Inline Preview</span>
+                    <button class="btn-icon" onclick="toggleSharedPreview()">&times;</button>
+                </div>
+                <div class="shared-preview-render" id="sharedPreviewRender">
+                    {% if link.category == 'image' %}
+                        <img src="{{ preview_url }}" alt="{{ link.original_filename }}" class="preview-img-tag">
+                    {% elif link.file_type == 'application/pdf' or link.original_filename.lower().endswith('.pdf') %}
+                        <iframe src="{{ preview_url }}" class="preview-iframe-tag"></iframe>
+                    {% elif link.category == 'video' %}
+                        <video controls class="preview-video-tag" src="{{ preview_url }}"></video>
+                    {% elif link.category == 'audio' %}
+                        <audio controls class="preview-audio-tag" src="{{ preview_url }}"></audio>
+                    {% elif link.category in ('code', 'document') and link.file_size < 1048576 %}
+                        <iframe src="{{ preview_url }}" class="preview-iframe-tag"></iframe>
+                    {% else %}
+                        <div class="preview-unsupported">
+                            <i data-lucide="file-question"></i>
+                            <p>Direct inline browser rendering is not available for this file type.</p>
+                            {% if link.permission == 'download' %}
+                                <a href="{{ download_url }}" class="btn btn-primary btn-sm">Download to View</a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <!-- Error / Expired / Revoked Card -->
+        <div class="error-shared-card glass-panel animate-scale-up">
+            <div class="error-icon-box">
+                {% if status == 'revoked' %}
+                    <i data-lucide="shield-x" class="error-icon text-danger"></i>
+                {% elif status == 'expired' %}
+                    <i data-lucide="clock-alert" class="error-icon text-warning"></i>
+                {% else %}
+                    <i data-lucide="alert-triangle" class="error-icon text-danger"></i>
+                {% endif %}
+            </div>
+            <h1 class="error-title">{{ error_title }}</h1>
+            <p class="error-desc">{{ error_message }}</p>
+            <div class="error-actions">
+                <a href="{{ url_for('login') }}" class="btn btn-primary">Go to Cloud File Share</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleSharedPreview() {
+        const box = document.getElementById('sharedPreviewBox');
+        const btnText = document.getElementById('previewBtnText');
+        if (box.style.display === 'none' || box.style.display === '') {
+            box.style.display = 'block';
+            btnText.textContent = 'Hide Preview';
+            box.scrollIntoView({ behavior: 'smooth' });
+        } else {
+            box.style.display = 'none';
+            btnText.textContent = 'Preview File';
+        }
+    }
+</script>
+{% endblock %}

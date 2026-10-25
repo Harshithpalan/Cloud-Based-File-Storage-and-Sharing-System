@@ -1,0 +1,474 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard — Cloud File Share{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Top Stats Banner -->
+    <section class="stats-grid">
+        <div class="stat-card glass-panel">
+            <div class="stat-icon-wrapper stat-storage">
+                <i data-lucide="hard-drive"></i>
+            </div>
+            <div class="stat-details">
+                <span class="stat-label">Storage Consumed</span>
+                <div class="stat-value">{{ storage_used|format_bytes }} <span class="stat-sub">/ {{ storage_quota|format_bytes }}</span></div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill {% if storage_percent > 85 %}progress-danger{% elif storage_percent > 65 %}progress-warning{% else %}progress-normal{% endif %}" 
+                         style="width: {{ storage_percent }}%;"></div>
+                </div>
+                <span class="stat-meta">{{ storage_percent }}% of storage quota used</span>
+            </div>
+        </div>
+
+        <div class="stat-card glass-panel">
+            <div class="stat-icon-wrapper stat-files">
+                <i data-lucide="folder"></i>
+            </div>
+            <div class="stat-details">
+                <span class="stat-label">Total Files Stored</span>
+                <div class="stat-value">{{ total_files }} <span class="stat-sub">files</span></div>
+                <div class="stat-meta">Across {{ category_breakdown|length }} file categories</div>
+            </div>
+        </div>
+
+        <div class="stat-card glass-panel">
+            <div class="stat-icon-wrapper stat-shares">
+                <i data-lucide="share-2"></i>
+            </div>
+            <div class="stat-details">
+                <span class="stat-label">Active Share Links</span>
+                <div class="stat-value">{{ share_links|selectattr('is_revoked', 'equalto', 0)|list|length }} <span class="stat-sub">links</span></div>
+                <div class="stat-meta">With permission & expiration controls</div>
+            </div>
+        </div>
+
+        <div class="stat-card glass-panel">
+            <div class="stat-icon-wrapper stat-cloud">
+                <i data-lucide="server"></i>
+            </div>
+            <div class="stat-details">
+                <span class="stat-label">Storage Backend</span>
+                <div class="stat-value stat-backend-tag">
+                    <span class="backend-badge {{ 'badge-gcs' if storage_backend == 'GCS' else 'badge-local' }}">
+                        {{ storage_backend }}
+                    </span>
+                </div>
+                <div class="stat-meta">Google Cloud App Engine Ready</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Upload Dropzone Card -->
+    <section class="upload-section glass-panel">
+        <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" multiple style="display: none;">
+            <div class="dropzone-content">
+                <div class="dropzone-icon-box">
+                    <i data-lucide="upload-cloud" class="dropzone-icon"></i>
+                </div>
+                <h3 class="dropzone-title">Drag & Drop files here, or <button type="button" class="btn-link" id="browseBtn">browse files</button></h3>
+                <p class="dropzone-subtitle">Upload multiple files at once. Max 50 MB per file.</p>
+                <div class="dropzone-chips">
+                    <span class="chip"><i data-lucide="file-text"></i> Documents</span>
+                    <span class="chip"><i data-lucide="image"></i> Images</span>
+                    <span class="chip"><i data-lucide="video"></i> Videos</span>
+                    <span class="chip"><i data-lucide="music"></i> Audio</span>
+                    <span class="chip"><i data-lucide="code"></i> Code</span>
+                    <span class="chip"><i data-lucide="archive"></i> Archives</span>
+                </div>
+            </div>
+        </div>
+        <!-- Upload Progress Area -->
+        <div class="upload-progress-list" id="uploadProgressContainer" style="display: none;">
+            <div class="upload-progress-header">
+                <span id="uploadProgressTitle">Uploading files...</span>
+                <span id="uploadProgressPercent">0%</span>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill progress-normal" id="globalProgressBar" style="width: 0%;"></div>
+            </div>
+            <div id="uploadStatusMessages" class="upload-status-messages"></div>
+        </div>
+    </section>
+
+    <!-- Filters & Search Toolbar -->
+    <section class="toolbar-section">
+        <div class="filter-pills" id="categoryFilterPills">
+            <a href="{{ url_for('dashboard', category='all', q=search_query, sort=sort_by) }}" 
+               class="pill-btn {% if category_filter == 'all' %}active{% endif %}">
+                All Files
+            </a>
+            <a href="{{ url_for('dashboard', category='document', q=search_query, sort=sort_by) }}" 
+               class="pill-btn {% if category_filter == 'document' %}active{% endif %}">
+                <i data-lucide="file-text"></i> Documents
+            </a>
+            <a href="{{ url_for('dashboard', category='image', q=search_query, sort=sort_by) }}" 
+               class="pill-btn {% if category_filter == 'image' %}active{% endif %}">
+                <i data-lucide="image"></i> Images
+            </a>
+            <a href="{{ url_for('dashboard', category='video', q=search_query, sort=sort_by) }}" 
+               class="pill-btn {% if category_filter == 'video' %}active{% endif %}">
+                <i data-lucide="video"></i> Videos
+            </a>
+            <a href="{{ url_for('dashboard', category='audio', q=search_query, sort=sort_by) }}" 
+               class="pill-btn {% if category_filter == 'audio' %}active{% endif %}">
+                <i data-lucide="music"></i> Audio
+            </a>
+            <a href="{{ url_for('dashboard', category='code', q=search_query, sort=sort_by) }}" 
+               class="pill-btn {% if category_filter == 'code' %}active{% endif %}">
+                <i data-lucide="code"></i> Code
+            </a>
+            <a href="{{ url_for('dashboard', category='archive', q=search_query, sort=sort_by) }}" 
+               class="pill-btn {% if category_filter == 'archive' %}active{% endif %}">
+                <i data-lucide="archive"></i> Archives
+            </a>
+        </div>
+
+        <div class="toolbar-controls">
+            <!-- Search Form -->
+            <form method="GET" action="{{ url_for('dashboard') }}" class="search-form">
+                <input type="hidden" name="category" value="{{ category_filter }}">
+                <input type="hidden" name="sort" value="{{ sort_by }}">
+                <div class="search-box">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search files by name..." class="search-input">
+                    {% if search_query %}
+                        <a href="{{ url_for('dashboard', category=category_filter, sort=sort_by) }}" class="search-clear" title="Clear search">&times;</a>
+                    {% endif %}
+                </div>
+            </form>
+
+            <!-- Sort Selector -->
+            <div class="sort-box">
+                <i data-lucide="arrow-up-down" class="sort-icon"></i>
+                <select id="sortSelector" class="sort-select" onchange="window.location.href = this.value;">
+                    <option value="{{ url_for('dashboard', category=category_filter, q=search_query, sort='date_desc') }}" {% if sort_by == 'date_desc' %}selected{% endif %}>Newest First</option>
+                    <option value="{{ url_for('dashboard', category=category_filter, q=search_query, sort='date_asc') }}" {% if sort_by == 'date_asc' %}selected{% endif %}>Oldest First</option>
+                    <option value="{{ url_for('dashboard', category=category_filter, q=search_query, sort='name_asc') }}" {% if sort_by == 'name_asc' %}selected{% endif %}>Name (A–Z)</option>
+                    <option value="{{ url_for('dashboard', category=category_filter, q=search_query, sort='name_desc') }}" {% if sort_by == 'name_desc' %}selected{% endif %}>Name (Z–A)</option>
+                    <option value="{{ url_for('dashboard', category=category_filter, q=search_query, sort='size_desc') }}" {% if sort_by == 'size_desc' %}selected{% endif %}>Size (Largest)</option>
+                    <option value="{{ url_for('dashboard', category=category_filter, q=search_query, sort='size_asc') }}" {% if sort_by == 'size_asc' %}selected{% endif %}>Size (Smallest)</option>
+                </select>
+            </div>
+        </div>
+    </section>
+
+    <!-- Files Table & Explorer -->
+    <section class="files-section glass-panel">
+        <div class="files-header">
+            <div class="files-header-left">
+                <h2 class="section-title">
+                    <i data-lucide="files"></i>
+                    <span>Your Cloud Files</span>
+                </h2>
+                <span class="files-badge">{{ files|length }} items</span>
+            </div>
+        </div>
+
+        {% if files|length == 0 %}
+            <div class="empty-state">
+                <div class="empty-icon-box">
+                    <i data-lucide="folder-open" class="empty-icon"></i>
+                </div>
+                <h3 class="empty-title">No files found</h3>
+                <p class="empty-text">
+                    {% if search_query or category_filter != 'all' %}
+                        No files matched your search or category filter. Try clearing filters.
+                    {% else %}
+                        You haven't uploaded any files yet. Drag and drop files above to get started!
+                    {% endif %}
+                </p>
+                {% if search_query or category_filter != 'all' %}
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary btn-sm">Reset Filters</a>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="table-responsive">
+                <table class="files-table" id="filesTable">
+                    <thead>
+                        <tr>
+                            <th>File Name</th>
+                            <th>Category</th>
+                            <th>Size</th>
+                            <th>Uploaded</th>
+                            <th>Downloads</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in files %}
+                            <tr class="file-row" id="file-row-{{ file.id }}">
+                                <td class="file-cell-name">
+                                    <div class="file-item-info">
+                                        <div class="file-type-icon cat-{{ file.category }}">
+                                            {% if file.category == 'image' %}
+                                                <i data-lucide="image"></i>
+                                            {% elif file.category == 'document' %}
+                                                <i data-lucide="file-text"></i>
+                                            {% elif file.category == 'video' %}
+                                                <i data-lucide="video"></i>
+                                            {% elif file.category == 'audio' %}
+                                                <i data-lucide="music"></i>
+                                            {% elif file.category == 'code' %}
+                                                <i data-lucide="code"></i>
+                                            {% elif file.category == 'archive' %}
+                                                <i data-lucide="archive"></i>
+                                            {% else %}
+                                                <i data-lucide="file"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div class="file-name-meta">
+                                            <span class="file-name-text" title="{{ file.original_filename }}">{{ file.original_filename }}</span>
+                                            <span class="file-mime-text">{{ file.file_type }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge-category cat-{{ file.category }}">{{ file.category|capitalize }}</span>
+                                </td>
+                                <td class="file-cell-size font-mono">{{ file.file_size|format_bytes }}</td>
+                                <td class="file-cell-date">{{ file.created_at|format_datetime }}</td>
+                                <td class="file-cell-downloads">
+                                    <span class="download-counter">
+                                        <i data-lucide="download" class="download-mini-icon"></i>
+                                        <span id="dl-count-{{ file.id }}">{{ file.download_count }}</span>
+                                    </span>
+                                </td>
+                                <td class="file-cell-actions text-right">
+                                    <div class="action-btn-group">
+                                        <!-- Preview -->
+                                        <button type="button" class="btn-icon btn-action-preview" title="Preview File"
+                                                onclick="openPreviewModal('{{ file.id }}', '{{ file.original_filename|escape }}', '{{ file.file_type }}', '{{ file.category }}')">
+                                            <i data-lucide="eye"></i>
+                                        </button>
+                                        <!-- Download -->
+                                        <a href="{{ url_for('download_file', file_id=file.id) }}" class="btn-icon btn-action-download" title="Download File">
+                                            <i data-lucide="download"></i>
+                                        </a>
+                                        <!-- Share Link -->
+                                        <button type="button" class="btn-icon btn-action-share" title="Share Secure Link"
+                                                onclick="openShareModal('{{ file.id }}', '{{ file.original_filename|escape }}')">
+                                            <i data-lucide="share-2"></i>
+                                        </button>
+                                        <!-- Delete -->
+                                        <button type="button" class="btn-icon btn-action-delete" title="Delete File"
+                                                onclick="confirmDelete('{{ file.id }}', '{{ file.original_filename|escape }}')">
+                                            <i data-lucide="trash-2"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+
+    <!-- Share Links Management Section -->
+    <section class="share-management-section glass-panel">
+        <div class="section-collapsible-header" onclick="toggleShareSection()">
+            <div class="header-left">
+                <i data-lucide="link" class="header-icon"></i>
+                <h2 class="section-title">Active & Recent Share Links</h2>
+                <span class="share-count-tag">{{ share_links|length }} generated</span>
+            </div>
+            <i data-lucide="chevron-down" id="shareSectionArrow"></i>
+        </div>
+
+        <div id="shareSectionBody" class="share-section-body" style="display: block;">
+            {% if share_links|length == 0 %}
+                <p class="text-muted p-3">No share links generated yet. Click the share icon on any file above to create a secure link.</p>
+            {% else %}
+                <div class="table-responsive">
+                    <table class="shares-table">
+                        <thead>
+                            <tr>
+                                <th>File</th>
+                                <th>Permission</th>
+                                <th>Expires At</th>
+                                <th>Accesses</th>
+                                <th>Status</th>
+                                <th class="text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for link in share_links %}
+                                <tr id="share-row-{{ link.id }}">
+                                    <td>
+                                        <span class="share-filename font-bold">{{ link.original_filename }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge-perm {{ 'perm-download' if link.permission == 'download' else 'perm-view' }}">
+                                            <i data-lucide="{{ 'download-cloud' if link.permission == 'download' else 'eye' }}"></i>
+                                            {{ link.permission|capitalize }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if link.expires_at %}
+                                            {{ link.expires_at|format_datetime }}
+                                        {% else %}
+                                            <span class="text-muted">Never</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ link.access_count }} visits</td>
+                                    <td>
+                                        {% if link.is_revoked %}
+                                            <span class="status-pill status-revoked">Revoked</span>
+                                        {% else %}
+                                            <span class="status-pill status-active">Active</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">
+                                        <div class="action-btn-group">
+                                            {% if not link.is_revoked %}
+                                                <button type="button" class="btn btn-outline-secondary btn-xs" 
+                                                        onclick="copyShareUrl('{{ url_for('view_shared_file', token=link.share_token, _external=True) }}')">
+                                                    <i data-lucide="copy"></i> Copy
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-xs" 
+                                                        onclick="revokeShareLink('{{ link.id }}')">
+                                                    <i data-lucide="shield-alert"></i> Revoke
+                                                </button>
+                                            {% else %}
+                                                <span class="text-muted text-xs">Access Disabled</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+
+<!-- ================= MODALS ================= -->
+
+<!-- Share Modal -->
+<div class="modal-overlay" id="shareModal" style="display: none;">
+    <div class="modal-card glass-panel animate-scale-up">
+        <div class="modal-header">
+            <div class="modal-title-box">
+                <i data-lucide="share-2" class="modal-icon"></i>
+                <h3 class="modal-title">Share File Securely</h3>
+            </div>
+            <button class="modal-close" onclick="closeShareModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="modal-file-target">File: <strong id="shareModalFilename">example.pdf</strong></p>
+
+            <form id="createShareForm" onsubmit="handleShareSubmit(event)">
+                <input type="hidden" id="shareModalFileId">
+                <div class="form-group">
+                    <label class="form-label">Access Permission</label>
+                    <div class="radio-cards">
+                        <label class="radio-card">
+                            <input type="radio" name="sharePermission" value="download" checked>
+                            <div class="radio-card-content">
+                                <i data-lucide="download"></i>
+                                <div>
+                                    <strong>Allow Download & View</strong>
+                                    <p>Recipients can both preview and download this file</p>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="sharePermission" value="view">
+                            <div class="radio-card-content">
+                                <i data-lucide="eye"></i>
+                                <div>
+                                    <strong>View Only</strong>
+                                    <p>Recipients can only preview; downloads are blocked</p>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="shareExpiresIn" class="form-label">Link Expiration</label>
+                    <select id="shareExpiresIn" class="form-control">
+                        <option value="never">Never (Persistent)</option>
+                        <option value="1h">1 Hour</option>
+                        <option value="24h">24 Hours (1 Day)</option>
+                        <option value="7d">7 Days</option>
+                        <option value="30d">30 Days</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block" id="generateShareBtn">
+                    <i data-lucide="link"></i> Generate Sharing Link
+                </button>
+            </form>
+
+            <!-- Result Box after link created -->
+            <div id="shareResultArea" style="display: none; margin-top: 1.5rem;">
+                <label class="form-label text-success font-bold"><i data-lucide="check-circle"></i> Sharing Link Ready!</label>
+                <div class="share-url-box">
+                    <input type="text" id="shareOutputUrl" class="form-control font-mono" readonly>
+                    <button type="button" class="btn btn-primary" onclick="copyShareOutputUrl()">
+                        <i data-lucide="copy"></i> Copy
+                    </button>
+                </div>
+                <small class="form-hint" id="shareResultNotice">Anyone with this link can access the file according to the chosen permissions.</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="deleteModal" style="display: none;">
+    <div class="modal-card glass-panel animate-scale-up modal-sm">
+        <div class="modal-header">
+            <div class="modal-title-box">
+                <i data-lucide="alert-triangle" class="modal-icon text-danger"></i>
+                <h3 class="modal-title">Delete File Confirmation</h3>
+            </div>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to permanently delete <strong id="deleteModalFilename"></strong>?</p>
+            <p class="text-muted text-sm">This action cannot be undone. Any active share links for this file will immediately stop working.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+            <button type="button" class="btn btn-danger" id="confirmDeleteBtn" onclick="executeDelete()">
+                <i data-lucide="trash-2"></i> Delete File
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal-overlay" id="previewModal" style="display: none;">
+    <div class="modal-card glass-panel animate-scale-up modal-lg">
+        <div class="modal-header">
+            <div class="modal-title-box">
+                <i data-lucide="eye" class="modal-icon"></i>
+                <h3 class="modal-title" id="previewModalTitle">File Preview</h3>
+            </div>
+            <button class="modal-close" onclick="closePreviewModal()">&times;</button>
+        </div>
+        <div class="modal-body preview-modal-body" id="previewContentArea">
+            <!-- Dynamic preview content injected via JS -->
+            <div class="preview-spinner">
+                <i data-lucide="loader" class="spin"></i> Loading preview...
+            </div>
+        </div>
+        <div class="modal-footer">
+            <a href="#" id="previewDownloadBtn" class="btn btn-primary btn-sm">
+                <i data-lucide="download"></i> Download Original
+            </a>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="closePreviewModal()">Close</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% endblock %}

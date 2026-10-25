@@ -1,0 +1,24 @@
+# Google App Engine Configuration for Cloud File Share
+# Aligned with Cloud Computing Lab Manual: Web Application Development on App Engine
+
+runtime: python311
+instance_class: F1
+
+entrypoint: gunicorn -b :$PORT "app:create_app('production')"
+
+env_variables:
+  FLASK_ENV: "production"
+  SECRET_KEY: "replace-with-a-cryptographically-secure-random-key"
+  STORAGE_BACKEND: "gcs"
+  GCS_BUCKET_NAME: "your-gcs-bucket-name"
+  # In Google App Engine, Application Default Credentials (ADC) are automatically available
+  DATABASE_PATH: "/tmp/cloud_file_share.db"
+
+# Static asset handlers for high-speed edge serving
+handlers:
+  - url: /static
+    static_dir: static
+
+  - url: /.*
+    script: auto
+    secure: always

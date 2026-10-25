@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}Page Not Found — Cloud File Share{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card glass-panel animate-fade-in text-center">
+        <div class="auth-icon-wrap" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+            <i data-lucide="compass" class="auth-icon"></i>
+        </div>
+        <h1 class="auth-title">404</h1>
+        <p class="auth-subtitle">The page or file you are looking for does not exist or has been moved.</p>
+        <div class="mt-4">
+            <a href="{{ url_for('dashboard') if current_user else url_for('login') }}" class="btn btn-primary">
+                <i data-lucide="home"></i> Return to Safety
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
